@@ -1,7 +1,8 @@
-import { Column, Entity, Unique } from 'typeorm';
+import { Column, Entity, OneToMany, Unique } from 'typeorm';
 import { RolesEnum } from '../enums/roles.enum';
 import { Exclude } from 'class-transformer';
 import { AbstractEntity } from 'src/library/entities/base.entity';
+import { RefreshToken } from 'src/refresh-token/entities/refresh-token.entity';
 
 @Entity()
 @Unique(['email'])
@@ -18,4 +19,12 @@ export class User extends AbstractEntity {
 
   @Column({ type: 'enum', enum: RolesEnum, nullable: true })
   role: RolesEnum | null;
+
+  @Exclude()
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user, {
+    eager: false,
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  refreshTokens: RefreshToken[] | null;
 }

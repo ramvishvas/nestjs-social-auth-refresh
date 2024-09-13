@@ -7,6 +7,8 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import envSchema from './library/env/env.schema';
 import { PinoLoggerModule } from './library/pino-logger/pino-logger.module';
+import { AuthModule } from './auth/auth.module';
+import { RefreshTokenModule } from './refresh-token/refresh-token.module';
 
 @Module({
   imports: [
@@ -21,16 +23,18 @@ import { PinoLoggerModule } from './library/pino-logger/pino-logger.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('POSTGRES_HOST'),
-        port: configService.get('POSTGRES_PORT'),
-        username: configService.get('POSTGRES_USERNAME'),
-        password: configService.get('POSTGRES_PASSWORD'),
-        database: configService.get('POSTGRES_DB_NAME'),
-        synchronize: configService.get('POSTGRES_SYNCHRONIZE'),
-        autoLoadEntities: configService.get('POSTGRES_AUTOLOADENTITIES'),
+        host: configService.getOrThrow('POSTGRES_HOST'),
+        port: configService.getOrThrow('POSTGRES_PORT'),
+        username: configService.getOrThrow('POSTGRES_USERNAME'),
+        password: configService.getOrThrow('POSTGRES_PASSWORD'),
+        database: configService.getOrThrow('POSTGRES_DB_NAME'),
+        synchronize: configService.getOrThrow('POSTGRES_SYNCHRONIZE'),
+        autoLoadEntities: configService.getOrThrow('POSTGRES_AUTOLOADENTITIES'),
       }),
     }),
     UsersModule,
+    AuthModule,
+    RefreshTokenModule,
   ],
   controllers: [AppController],
   providers: [AppService],

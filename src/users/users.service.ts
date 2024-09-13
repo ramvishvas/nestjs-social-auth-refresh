@@ -5,6 +5,7 @@ import { FilterUserDto } from './dto/filter-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
+import { hash } from 'bcryptjs';
 
 /**
  * The UsersService class is a service that provides methods to manage users.
@@ -16,9 +17,10 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    // const password = await this.hashingProvider.hash(createUserDto.password);
+    const password = await hash(createUserDto.password, 10);
     const user = this.userRepository.create({
       ...createUserDto,
+      password,
     });
     return this.userRepository.save(user);
   }

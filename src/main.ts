@@ -3,6 +3,7 @@ import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
+import * as cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 import { BaseExceptionsFilter } from './library/filters/base-exceptions.filter';
@@ -24,6 +25,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Cookie parser middleware setup to parse cookies from the request headers
+  app.use(cookieParser());
 
   // Class serializer interceptor setup to filter out properties from the response payload based on the
   // @Exclude() decorator from the class-transformer package in the DTOs and entities classes
