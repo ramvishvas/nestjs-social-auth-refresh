@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RefreshTokenModule } from 'src/refresh-token/refresh-token.module';
 import { MailService } from './mail.service';
+import { InMemoryCacheService } from 'src/library/services/in-memory-cache.service';
 
 @Module({
   imports: [UsersModule, PassportModule, JwtModule, RefreshTokenModule],
@@ -19,6 +20,7 @@ import { MailService } from './mail.service';
     JwtStrategy,
     JwtRefreshStrategy,
     MailService,
+    InMemoryCacheService,
   ],
 })
 export class AuthModule {}

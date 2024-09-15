@@ -61,4 +61,32 @@ export class MailService {
     );
     return this.sendMail(payload);
   }
+
+  sendPasswordResetEmail(email: string, token: string) {
+    // Get the current date and time
+    const now = new Date();
+    // Add 10 minutes to the current date
+    const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
+
+    // Format the expiration date as a readable string (e.g., 'YYYY-MM-DD HH:MM:SS')
+    const formattedExpirationDate = expirationDate.toLocaleString();
+
+    // Construct the email body
+    const emailBody = `
+    <p>Click <a href="${this.configService.get<string>(
+      'FRONTEND_URL',
+    )}/auth/reset-password?token=${token}">here</a> to reset your password.</p>
+    <p>This link will expire in 10 minutes on ${formattedExpirationDate}. Please use it before the expiration time to reset your password.</p>
+  `;
+
+    // Create the email payload
+    const payload = this.getCommonMailPayload(
+      email,
+      'Reset your password',
+      emailBody,
+    );
+
+    // Send the email
+    return this.sendMail(payload);
+  }
 }

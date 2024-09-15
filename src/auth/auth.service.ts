@@ -1,8 +1,11 @@
+import { InMemoryCacheService } from './../library/services/in-memory-cache.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { MailService } from './mail.service';
 import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +19,7 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ICurrentUser } from './interface/current-user.interface';
 import { HashingService } from 'src/library/services/hashing.service';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +30,7 @@ export class AuthService {
     private readonly refreshTokenService: RefreshTokenService,
     private readonly mailService: MailService,
     private readonly hashingService: HashingService,
+    private readonly inMemoryCacheService: InMemoryCacheService,
   ) {}
 
   private getExpirationDate(expiresInMs: string): Date {
@@ -216,5 +221,85 @@ export class AuthService {
     );
 
     return { message: 'Password changed successfully.' };
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+
+    // Validate email format if needed
+    if (!email) {
+      throw new BadRequestException('Email is required.');
+    }
+
+    // Find user by email
+    const user = await this.usersService.findOneByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException(
+        'User with this email address does not exist.',
+      );
+    }
+
+    // Generate a password reset token
+    const tokenPayload: ITokenPayload = {
+      userId: user.id,
+      email: user.email,
+    };
+
+    const resetToken = this.jwtService.sign(tokenPayload, {
+      secret: this.configService.getOrThrow('JWT_EMAIL_SECRET'),
+    });
+
+    const hashedResetToken = await this.hashingService.hash(resetToken);
+
+    // Store the reset token in memory
+    this.inMemoryCacheService.setWithExpiration(hashedResetToken, resetToken);
+
+    // Send the password reset email
+    try {
+      await this.mailService.sendPasswordResetEmail(email, hashedResetToken);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      throw new BadRequestException('Error sending password reset email.');
+    }
+
+    return { message: 'Password reset email sent successfully.' };
+  }
+
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+    hashedResetToken: string,
+  ) {
+    // Validate token
+    const resetToken = this.inMemoryCacheService.get(hashedResetToken);
+
+    if (!resetToken) {
+      throw new BadRequestException('Token is invalid or expired.');
+    }
+
+    try {
+      // Verify and decode the token
+      const decodedToken = this.jwtService.verify(resetToken) as ITokenPayload;
+
+      // Find user by id
+      const user = await this.usersService.findOne(decodedToken.userId);
+      if (!user) {
+        throw new BadRequestException('User not found.');
+      }
+
+      // Update user's password
+      await this.usersService.updatePassword(
+        decodedToken.userId,
+        resetPasswordDto.newPassword,
+      );
+
+      // Cleanup the token from in-memory cache
+      this.inMemoryCacheService.delete(hashedResetToken);
+
+      return { message: 'Password reset successfully.' };
+    } catch (error) {
+      // Handle JWT verification errors
+      throw new BadRequestException('Token is invalid or expired.');
+    }
   }
 }

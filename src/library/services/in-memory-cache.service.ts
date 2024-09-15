@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class InMemoryCacheService {
-  private cache: Map<string, any> = new Map();
-  private timeouts: Map<string, NodeJS.Timeout> = new Map();
+  private cache: Map<string | number, any> = new Map();
+  private timeouts: Map<string | number, NodeJS.Timeout> = new Map();
 
   private static defaultTTL = 12 * 60 * 1000; // 12 minutes
 
@@ -13,7 +13,7 @@ export class InMemoryCacheService {
    * @param value - The value to store.
    * @param ttl - Time to live in milliseconds.
    */
-  setWithExpiration(key: string, value: any, ttl?: number): void {
+  setWithExpiration(key: string | number, value: any, ttl?: number): void {
     // Clear any existing timeout for the key if it exists
     if (this.timeouts.has(key)) {
       clearTimeout(this.timeouts.get(key));
