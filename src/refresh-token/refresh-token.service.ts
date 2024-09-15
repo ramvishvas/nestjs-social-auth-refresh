@@ -4,13 +4,14 @@ import { UpdateRefreshTokenDto } from './dto/update-refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { hash } from 'bcryptjs';
+import { HashingService } from 'src/library/services/hashing.service';
 
 @Injectable()
 export class RefreshTokenService {
   constructor(
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
+    private readonly hashingService: HashingService,
   ) {}
 
   async create(
@@ -29,7 +30,7 @@ export class RefreshTokenService {
   ): Promise<RefreshToken> {
     const existingTokens = await this.findByUserId(userId);
 
-    const hashedToken = await hash(token, 10); // Hash the refresh token before storing it
+    const hashedToken = await this.hashingService.hash(token); // Hash the refresh token before storing it
 
     if (existingTokens && existingTokens.length > 0) {
       // If a refresh token exists, update the first one found

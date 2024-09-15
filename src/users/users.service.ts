@@ -5,7 +5,7 @@ import { FilterUserDto } from './dto/filter-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
-import { hash } from 'bcryptjs';
+import { HashingService } from 'src/library/services/hashing.service';
 
 /**
  * The UsersService class is a service that provides methods to manage users.
@@ -14,10 +14,11 @@ import { hash } from 'bcryptjs';
 export class UsersService {
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
+    private readonly hashService: HashingService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const password = await hash(createUserDto.password, 10);
+    const password = await this.hashService.hash(createUserDto.password);
     const user = this.userRepository.create({
       ...createUserDto,
       password,
@@ -57,10 +58,18 @@ export class UsersService {
     });
   }
 
-  updatePartial(id: number, updateUserDto: UpdateUserDto) {
+  updatePartial(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     return this.userRepository.save({
       id,
       ...updateUserDto,
+    });
+  }
+
+  async updatePassword(id: number, newPassword: string): Promise<User> {
+    const hashedPassword = await this.hashService.hash(newPassword);
+    return this.userRepository.save({
+      id,
+      password: hashedPassword,
     });
   }
 

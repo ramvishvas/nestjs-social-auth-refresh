@@ -7,3 +7,15 @@ Content-Type: application/json
     "password": "StrongP@ssword1"
 }
 
+
+
+POST http://localhost:3000/auth/signup
+Content-Type: application/json
+
+{
+    "name": "Ramvishvas Kumar",
+    "email": "ramvishvasg@gmail.com",
+    "password": "StrongP@ssword1",
+    "confirmPassword": "StrongP@ssword1",
+    "role": "admin"
+}

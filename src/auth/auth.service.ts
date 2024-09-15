@@ -1,12 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { MailService } from './mail.service';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { compare } from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { Response } from 'express';
-import { TokenPayload } from './interface/token-payload.interface';
+import { ITokenPayload } from './interface/token-payload.interface';
 import { LoginAuthDto } from './dto/login-user.dto';
 import { RefreshTokenService } from 'src/refresh-token/refresh-token.service';
+import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ICurrentUser } from './interface/current-user.interface';
+import { HashingService } from 'src/library/services/hashing.service';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +24,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly mailService: MailService,
+    private readonly hashingService: HashingService,
   ) {}
 
   private getExpirationDate(expiresInMs: string): Date {
@@ -52,7 +63,7 @@ export class AuthService {
       throw new UnauthorizedException('Credentials are not valid.');
     }
 
-    const tokenPayload: TokenPayload = {
+    const tokenPayload: ITokenPayload = {
       userId: user.id,
       email: user.email,
     };
@@ -93,7 +104,10 @@ export class AuthService {
       throw new UnauthorizedException('User not found.');
     }
 
-    const authenticated = await compare(password, user.password);
+    const authenticated = await this.hashingService.compare(
+      password,
+      user.password,
+    );
     if (!authenticated) {
       throw new UnauthorizedException('Invalid password.');
     }
@@ -117,7 +131,7 @@ export class AuthService {
 
     // Find the correct refresh token (useful when handling multiple tokens)
     const validRefreshToken = storedRefreshTokens.find((token) =>
-      compare(refreshToken, token.refreshToken),
+      this.hashingService.compare(refreshToken, token.refreshToken),
     );
 
     if (!validRefreshToken) {
@@ -125,5 +139,82 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async signup(createUserDto: CreateUserDto) {
+    const newUser = await this.usersService.create(createUserDto);
+    if (!newUser) {
+      throw new InternalServerErrorException('User not created.');
+    }
+
+    // Send welcome email
+    await this.mailService.sendWelcomeEmail(newUser.email);
+
+    // Sent verification email
+    const tokenPayload: ITokenPayload = {
+      userId: newUser.id,
+      email: newUser.email,
+    };
+
+    const emailVerificationToken = this.jwtService.sign(tokenPayload, {
+      secret: this.configService.getOrThrow('JWT_EMAIL_SECRET'),
+    });
+
+    await this.mailService.sendVerificationEmail(
+      newUser.email,
+      emailVerificationToken,
+    );
+
+    return newUser;
+  }
+
+  async verifyEmail(token: string) {
+    const decodedToken = this.jwtService.decode(token) as ITokenPayload;
+    if (!decodedToken) {
+      throw new UnauthorizedException('Invalid token.');
+    }
+
+    const user = await this.usersService.findOne(decodedToken.userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found.');
+    }
+
+    // Verify email
+    user.isEmailConfirmed = new Date();
+    await this.usersService.update(user.id, user);
+
+    return user;
+  }
+
+  async changePassword(
+    changePasswordDto: ChangePasswordDto,
+    currentUser: ICurrentUser,
+  ) {
+    if (!currentUser) {
+      throw new UnauthorizedException('User not found.');
+    }
+
+    const authenticated = await this.hashingService.compare(
+      changePasswordDto.oldPassword,
+      currentUser.password,
+    );
+
+    if (!authenticated) {
+      throw new UnauthorizedException('Invalid password.');
+    }
+
+    // Compare old password with the user's current password
+    if (changePasswordDto.oldPassword === changePasswordDto.newPassword) {
+      throw new BadRequestException(
+        'New password cannot be the same as the old password.',
+      );
+    }
+
+    await this.usersService.updatePassword(
+      currentUser.id,
+      changePasswordDto.newPassword,
+    );
+
+    return { message: 'Password changed successfully.' };
   }
 }

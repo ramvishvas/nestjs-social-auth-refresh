@@ -20,6 +20,9 @@ export class User extends AbstractEntity {
   @Column({ type: 'enum', enum: RolesEnum, nullable: true })
   role: RolesEnum | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  isEmailConfirmed: Date | null;
+
   @Exclude()
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user, {
     eager: false,
